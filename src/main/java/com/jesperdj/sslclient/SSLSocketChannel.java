@@ -200,7 +200,7 @@ public final class SSLSocketChannel<M> implements AutoCloseable {
             result = sslEngine.wrap(appOutBuffer, netOutBuffer);
         } catch (SSLException e) {
             LOG.warn("Exception while calling SSLEngine.wrap()", e);
-            close();
+            closeChannel();
             return;
         }
         appOutBuffer.compact();
@@ -269,7 +269,7 @@ public final class SSLSocketChannel<M> implements AutoCloseable {
             result = sslEngine.unwrap(netInBuffer, appInBuffer);
         } catch (SSLException e) {
             LOG.warn("Exception while calling SSLEngine.unwrap()", e);
-            close();
+            closeChannel();
             return;
         }
         netInBuffer.compact();
@@ -322,12 +322,12 @@ public final class SSLSocketChannel<M> implements AutoCloseable {
             // This will check if the server has sent the appropriate SSL close handshake alert and throws an exception
             // if it did not. Note that some servers don't, so this should not be treated as a fatal exception.
             sslEngine.closeInbound();
+            close();
         } catch (SSLException e) {
             // This exception might happen because some servers do not respond to the client's close notify alert
             // message during the SSL close handshake; they just close the connection. This is normally not a problem.
             LOG.debug("Exception while calling SSLEngine.closeInbound(): {}", e.getMessage());
-        } finally {
-            close();
+            closeChannel();
         }
     }
 
@@ -359,7 +359,13 @@ public final class SSLSocketChannel<M> implements AutoCloseable {
         // Perform close handshake
         checkHandshakeStatus();
 
-        LOG.debug("Closing socket channel");
-        socketChannel.close();
+        closeChannel();
+    }
+
+    private void closeChannel() throws IOException {
+        if (socketChannel.isOpen()) {
+            LOG.debug("Closing socket channel");
+            socketChannel.close();
+        }
     }
 }
